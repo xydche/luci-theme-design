@@ -1,6 +1,9 @@
 # luci-theme-neobird
-## 针对移动端优化的Openwrt主题
 
+## 更新日志
+* 20221104:底部navbar替换SSRP为PASSWALL，添加LOG按钮，删除其他无用按钮
+
+## 针对移动端优化的Openwrt主题
 For Lean's OpenWRT Only
 https://github.com/coolsnowwolf/lede
 
@@ -47,7 +50,7 @@ https://github.com/coolsnowwolf/lede
 ```
 cd lede/package/lean  
 rm -rf luci-theme-neobird  
-git clone https://github.com/thinktip/luci-theme-neobird.git  
+git clone https://github.com/xydche/luci-theme-neobird.git  
 cd ~/lede/
 make menuconfig #choose LUCI->Theme->Luci-theme-neobird  
 make -j1 V=s
