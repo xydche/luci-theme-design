@@ -119,7 +119,7 @@
 	-- Custom settings
 	local mode = 'normal'
 	local navbar = 'display'
-	local navbar_proxy = 'openclash'
+	local navbar_proxy = 'passwall'
 	if fs.access('/etc/config/design') then
 		mode = uci:get_first('design', 'global', 'mode')
 		navbar = uci:get_first('design', 'global', 'navbar')
@@ -205,8 +205,8 @@
   <a href="/cgi-bin/luci/admin/services/<%=navbar_proxy%>"><img src="<%=media%>/images/ssr.png" /></a>
   <% end -%>	
   <a href="/cgi-bin/luci/admin/network/network"><img src="<%=media%>/images/link.png" /></a>
-  <a href="/cgi-bin/luci/admin/status/realtime"><img src="<%=media%>/images/rank.png" /></a>
-  <a href="/cgi-bin/luci/admin/system/admin"><img src="<%=media%>/images/user.png" /></a>
+  <a href="/cgi-bin/luci/admin/services/mia"><img src="<%=media%>/images/mia.png" /></a>
+  <a href="/cgi-bin/luci/admin/status/syslog"><img src="<%=media%>/images/log.png" /></a>
 </div>
 
 
