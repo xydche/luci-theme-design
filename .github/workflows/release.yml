@@ -1,102 +1,97 @@
-name: Release 21.02
+name: Release 23.05
 
 on:
   push:
     tags:
       - 'v*'
-  repository_dispatch:
   workflow_dispatch:
     inputs:
       sdk_version:
-        description: '编译SDK版本'     
+        description: '编译 SDK 版本'
         required: true
-        default: '21.02.7' 
+        default: '23.05.6'
         type: choice
         options:
-        - 21.02.7
-        - 22.03.7
-        - 23.05.6
-        - 24.10.4
+          - 21.02.7
+          - 22.03.7
+          - 23.05.6
+          - 24.10.4
       upload_artifact:
-        description: '是否上传到Artifact'
-        required: false
+        description: '是否上传到 Artifact'
         type: boolean
         default: false
-      upload_release:
-        description: '是否上传到Release'
-        required: false
-        type: boolean
-        default: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
 
+    steps:
       - name: Initialization Environment
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          echo -e "Total CPU cores\t: $(nproc)"
-          cat /proc/cpuinfo | grep 'model name'
-          free -h
+          echo "CPU cores: $(nproc)"
           uname -a
-          [ -f /proc/version ] && cat /proc/version
-          [ -f /etc/issue.net ] && cat /etc/issue.net
-          [ -f /etc/issue ] && cat /etc/issue
-          ulimit -a
+          free -h
 
       - name: Download SDK
+        id: sdk
         run: |
-          declare -A sdkMap=()
-          sdkMap["21.02.7"]="openwrt-sdk-21.02.7-x86-64_gcc-8.4.0_musl"
-          sdkMap["22.03.7"]="openwrt-sdk-22.03.7-x86-64_gcc-11.2.0_musl"
-          sdkMap["23.05.6"]="openwrt-sdk-23.05.6-x86-64_gcc-12.3.0_musl"
-          sdkMap["24.10.4"]="openwrt-sdk-24.10.4-x86-64_gcc-13.3.0_musl"
-          SDK=${sdkMap["${{ inputs.sdk_version }}"]}
-          echo "USE SDK=$SDK"
-          wget https://archive.openwrt.org/releases/${{ inputs.sdk_version }}/targets/x86/64/$SDK.Linux-x86_64.tar.xz
-          xz -d $SDK.Linux-x86_64.tar.xz
-          tar -xf $SDK.Linux-x86_64.tar
+          declare -A sdkMap=(
+            ["21.02.7"]="openwrt-sdk-21.02.7-x86-64_gcc-8.4.0_musl"
+            ["22.03.7"]="openwrt-sdk-22.03.7-x86-64_gcc-11.2.0_musl"
+            ["23.05.6"]="openwrt-sdk-23.05.6-x86-64_gcc-12.3.0_musl"
+            ["24.10.4"]="openwrt-sdk-24.10.4-x86-64_gcc-13.3.0_musl"
+          )
+
+          SDK_VER="${{ inputs.sdk_version || '21.02.7' }}"
+          SDK="${sdkMap[$SDK_VER]}"
+
+          echo "SDK_VER=$SDK_VER" >> $GITHUB_OUTPUT
+          echo "Using SDK: $SDK_VER"
+
+          wget https://archive.openwrt.org/releases/$SDK_VER/targets/x86/64/$SDK.Linux-x86_64.tar.xz
+          tar -xf $SDK.Linux-x86_64.tar.xz
           mv $SDK.Linux-x86_64 openwrt-sdk
 
       - name: Build
         id: build
-        run: | 
+        run: |
           cd openwrt-sdk
-          git clone  --depth=1 -b "${{ github.ref_name }}" https://github.com/papagaye744/luci-theme-design.git package/luci-theme-design
-          ./scripts/feeds update -a && ./scripts/feeds install -a
+
+          # 始终从默认分支（js）构建
+          REF="${GITHUB_DEFAULT_BRANCH}"
+          echo "Build from branch: $REF"
+
+          git clone --depth=1 -b "$REF" \
+            https://github.com/papagaye744/luci-theme-design.git \
+            package/luci-theme-design
+
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
           echo "CONFIG_PACKAGE_luci-theme-design=y" >> .config
           make defconfig
-          make package/luci-theme-design/compile V=s -j$(nproc)
-          TARGET="$(find bin/ | grep  luci-theme-design)"
-          echo "TARGET=$(pwd)/$TARGET"
-          echo "TARGET=$(pwd)/$TARGET" >> $GITHUB_OUTPUT
-          echo "status=success" >> $GITHUB_OUTPUT
-          
-      - name : Upload to artifact
-        uses: actions/upload-artifact@master
-        if: steps.build.outputs.status == 'success' && github.event.inputs.upload_artifact == 'true' && !cancelled()
+          make package/luci-theme-design/compile -j$(nproc)
+
+          TARGET=$(find bin/ -name "*luci-theme-design*" | head -n 1)
+          echo "TARGET=$PWD/$TARGET" >> $GITHUB_OUTPUT
+
+      - name: Upload Artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: luci-theme-design-${{ inputs.sdk_version }}
+          name: luci-theme-design-${{ steps.sdk.outputs.SDK_VER }}
           path: ${{ steps.build.outputs.TARGET }}
 
-      - name: Get tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
-        if: steps.build.outputs.status == 'success' && github.event.inputs.upload_release == 'true' && !cancelled()
-        with:
-        # Optionally strip `v` prefix
-          strip_v: false
-          
-      - name: Upload to release
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
-        if: steps.build.outputs.status == 'success' && github.event.inputs.upload_release == 'true' && !cancelled()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ steps.tag.outputs.tag }}
-          tag_name: ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }} (SDK ${{ steps.sdk.outputs.SDK_VER }})
           prerelease: false
           generate_release_notes: true
           files: |
