@@ -54,21 +54,24 @@ jobs:
           SDK="${sdkMap[$SDK_VER]}"
 
           echo "SDK_VER=$SDK_VER" >> $GITHUB_OUTPUT
-          echo "Using SDK: $SDK_VER"
 
           wget https://archive.openwrt.org/releases/$SDK_VER/targets/x86/64/$SDK.Linux-x86_64.tar.xz
           tar -xf $SDK.Linux-x86_64.tar.xz
-          mv $SDK.Linux-x86_64 openwrt-sdk
+
+          SDK_DIR="$RUNNER_TEMP/openwrt-sdk"
+          mv $SDK.Linux-x86_64 "$SDK_DIR"
+
+          echo "SDK_DIR=$SDK_DIR" >> $GITHUB_OUTPUT
+
 
       - name: Build
         id: build
         run: |
-          cd openwrt-sdk
+          cd "${{ steps.sdk.outputs.SDK_DIR }}"
 
           mkdir -p package/luci-theme-design
 
-          # 将当前仓库内容复制为 package（排除无关文件）
-          rsync -a --delete \
+          rsync -a \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='README*' \
@@ -84,6 +87,7 @@ jobs:
 
           TARGET=$(find bin/ -name "*luci-theme-design*" | head -n 1)
           echo "TARGET=$PWD/$TARGET" >> $GITHUB_OUTPUT
+
 
       - name: Upload Artifact
         if: github.event_name == 'workflow_dispatch' && inputs.upload_artifact
